@@ -1,0 +1,27 @@
+# secrets — never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# virtual envs
+.venv/
+venv/
+env/
+
+# generated outputs (gitignored; SQLite + JSON per-run files)
+results/
+reports/
+*.db
+
+# test / build artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
