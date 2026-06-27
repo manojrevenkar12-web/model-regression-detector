@@ -1,0 +1,125 @@
+{
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "gc-001",
+      "text": "Hello, I just checked my credit card statement and I see a charge of $89.99 from your store, but I thought my order total was $59.99. My order number is #ORD-78432. Can you look into this and refund the difference?",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "easy",
+      "notes": "Straightforward overcharge dispute with a specific order number and amount delta. Clear single-category signal."
+    },
+    {
+      "id": "gc-002",
+      "text": "Your mobile app crashes every single time I try to view my order history. It happens right when the page starts loading. I'm on a Samsung Galaxy S23 running Android 14. This has been happening for three days now.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "easy",
+      "notes": "Clear bug report with device details and a reliable reproduction path. Strong technical signal."
+    },
+    {
+      "id": "gc-003",
+      "text": "I forgot my password and clicked 'Forgot Password' but I haven't received the reset email. I've waited 30 minutes and checked my spam folder. My account email is the one I'm writing from.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "easy",
+      "notes": "Classic account access issue. Password reset email not arriving. No ambiguity."
+    },
+    {
+      "id": "gc-004",
+      "text": "Hi, I'm interested in placing a large order but wanted to confirm first — do you offer free shipping for orders over a certain amount? And roughly how long does delivery take to the UK?",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "easy",
+      "notes": "Pure policy/shipping inquiry. No account issue, no technical problem, no charge dispute."
+    },
+    {
+      "id": "gc-005",
+      "text": "I used promo code SAVE20 at checkout and the page said the discount was applied, but when I look at my receipt the full price of $120 was charged instead of $96. My order is #ORD-91023 placed yesterday. I'd like the $24 refunded.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "medium",
+      "notes": "Billing issue involving a failed promo code. Slightly more complex than a plain overcharge — there is a UI confirmation step that contradicts the final charge."
+    },
+    {
+      "id": "gc-006",
+      "text": "I set up two-factor authentication a few months ago but I've since got a new phone and can't generate the codes anymore. I'm completely locked out of my account. I can verify my identity through my original email address if that helps.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "medium",
+      "notes": "Account lockout caused by a 2FA device change. Could be misread as technical but the root issue is account access, not a product bug."
+    },
+    {
+      "id": "gc-007",
+      "text": "I received my order (#ORD-66210) last week but the jacket is the wrong size. It's unworn with all the tags still on. I'd like to return it and get a full refund. What's the return process, and will I have to pay for the return shipping?",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "easy",
+      "notes": "Standard return request. No billing error, no technical issue, no account problem — fits general."
+    },
+    {
+      "id": "gc-008",
+      "text": "I cancelled my premium subscription two months ago but I'm still being charged $12.99 every month. My account page still shows me as a premium member even though I cancelled. I want the subscription actually cancelled and a refund for the last two charges.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "hard",
+      "notes": "Ambiguous: billing (ongoing charges after cancellation) overlaps with account (subscription state not updated). Both dimensions are present; labeler should decide the primary driver."
+    },
+    {
+      "id": "gc-009",
+      "text": "I bought your wireless headphones last week. The left earbud makes a crackling sound and the battery dies after about 2 hours even though the box says 8 hours. I'd like either a replacement unit or a full refund.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "hard",
+      "notes": "Ambiguous: defective hardware could be technical (device malfunction) or general (return/replacement). The resolution path is a return, but the description is technical."
+    },
+    {
+      "id": "gc-010",
+      "text": "its not working",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "hard",
+      "notes": "Extremely short with zero context. Tests robustness to minimal signal — the model must assign a category with almost no information."
+    },
+    {
+      "id": "gc-011",
+      "text": "helo i bougth somthing 3 weak ago and it still hasnt arivved. my oder numbre is 55421. can u plese chekc wher it is?? very frustated",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "medium",
+      "notes": "Heavy typos and informal language but intent is clear: missing shipment inquiry. Tests whether the model handles poor spelling without misclassifying."
+    },
+    {
+      "id": "gc-012",
+      "text": "Hello, I have a problem with my account. No puedo iniciar sesión — it keeps saying my password is wrong but I just changed it five minutes ago. Can you help me? Gracias.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "hard",
+      "notes": "Mixed English/Spanish. The account issue is clear once understood, but the language switch may confuse the model."
+    },
+    {
+      "id": "gc-013",
+      "text": "Oh wow, you've now charged me THREE times for the same order. Truly an impressive achievement. I'd love it if you could maybe, I don't know, refund the two extra charges? Order #ORD-34887.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "medium",
+      "notes": "Sarcastic tone throughout. The underlying issue is a duplicate charge (billing) but heavy sarcasm could mislead a naive classifier."
+    },
+    {
+      "id": "gc-014",
+      "text": "Every time I try to check out, the site asks me to verify my email again even though I verified it when I signed up. I've tried three different browsers. Sometimes it lets me through on the second attempt, sometimes not.",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "hard",
+      "notes": "Intermittent checkout verification loop. Could be a technical bug (broken verification flow) or an account state issue (verification flag not persisting). Genuinely ambiguous."
+    },
+    {
+      "id": "gc-015",
+      "text": "Just wanted to say that your customer service rep Maria was absolutely wonderful. She resolved my issue in under five minutes and was incredibly patient throughout. Please pass along my thanks to her and her team!",
+      "expected_category": "",
+      "expected_summary": "",
+      "expected_difficulty": "easy",
+      "notes": "Positive feedback/compliment. No action required. Tests the general catch-all and whether the model avoids forcing it into a problem category."
+    }
+  ]
+}
