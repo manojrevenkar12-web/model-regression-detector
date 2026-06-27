@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -55,3 +56,47 @@ class GoldenCase(BaseModel):
 class GoldenDataset(BaseModel):
     version: str
     cases: list[GoldenCase]
+
+
+class CaseResult(BaseModel):
+    case_id: str
+    status: Literal["ok", "error"] = "ok"
+    predicted_category: str | None = None
+    predicted_summary: str | None = None
+    expected_category: str
+    expected_summary: str
+    category_match: bool | None = None
+    judge_score: int | None = None
+    latency_ms: float | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    error: str | None = None
+
+
+class RunResult(BaseModel):
+    run_id: str
+    run_at: datetime
+    dataset_version: str
+    prompt_version: str
+    classifier_model: str
+    judge_model: str
+    cases: list[CaseResult]
+    pass_rate: float
+    mean_judge_score: float | None
+    mean_latency_ms: float | None
+
+
+class AlertLevel(str, Enum):
+    ok = "ok"
+    warning = "warning"
+    critical = "critical"
+
+
+class RunComparison(BaseModel):
+    baseline_run_id: str
+    current_run_id: str
+    pass_rate_delta: float
+    per_category_delta: dict[str, float]
+    regressions: list[str]
+    improvements: list[str]
+    alert_level: AlertLevel
