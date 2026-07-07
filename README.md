@@ -25,13 +25,22 @@ pip install -r requirements.txt
 
 python cli.py run       # evaluate the golden dataset, save the run
 python cli.py compare   # diff the two most recent runs
+python cli.py drift     # detect slow degradation over the rolling window
 ```
 
-`run` prints per-case predictions and a pass rate summary.
+`run` prints per-case predictions and a pass rate summary. If every case
+errors (bad API key, no credits, network failure) the result is printed
+but not saved — infrastructure failures are not recorded as baselines.
+
 `compare` prints the pass-rate delta, any regressions or improvements
 by case ID, per-category deltas, and per-case judge-score drift.
 
-Both commands accept overrides:
+`drift` computes the rolling average pass rate over the last
+`drift_window_runs` runs and fires a warning if it has dropped by more
+than `drift_threshold` from the oldest run in the window — catching
+gradual degradation that no single run's diff would surface.
+
+All three commands accept overrides:
 
 ```bash
 python cli.py --config config.yaml run \
@@ -58,9 +67,15 @@ Each run follows this path:
    summary on a 1–5 rubric.
 4. **Storage** (`src/storage.py`) — writes the full `RunResult` to
    `results/<run_id>.json` and a summary row to `runs.db` (SQLite).
+   Refuses to persist a run where every case errored; those are
+   infrastructure failures, not quality measurements.
 5. **Diff** (`src/diff.py`) — computes pass-rate delta, per-category
    deltas, regression/improvement lists, and an alert level
    (`ok` / `warning` / `critical`) against configured thresholds.
+6. **Drift** (`src/drift.py`) — reads the last N run summaries from
+   SQLite and computes a rolling average pass rate. Fires a warning when
+   the average has dropped by more than `drift_threshold` from the oldest
+   run in the window, catching gradual decline that no single diff catches.
 
 All LLM calls go through one function — `call_llm_full` in `src/llm.py`.
 This keeps the provider, model, and token-budget logic in one place;
@@ -144,7 +159,8 @@ an environment variable.
 ```yaml
 warning_threshold: 0.05    # env: WARNING_THRESHOLD
 critical_threshold: 0.15   # env: CRITICAL_THRESHOLD
-drift_window_runs: 5        # env: DRIFT_WINDOW_RUNS
+drift_window_runs: 7        # env: DRIFT_WINDOW_RUNS
+drift_threshold: 0.05       # env: DRIFT_THRESHOLD
 concurrency_limit: 5        # env: CONCURRENCY_LIMIT
 classifier_model: openai/gpt-4o-mini  # env: CLASSIFIER_MODEL
 judge_model: openai/gpt-4o            # env: JUDGE_MODEL
@@ -171,7 +187,7 @@ Switching to a different provider requires only changing `base_url` in
 pytest
 ```
 
-30 unit tests, no network calls. The test suite covers:
+45 unit tests, no network calls. The test suite covers:
 
 - **`tests/test_runner.py`** — error isolation (LLM exception → `status="error"`,
   not a crashed run), error cases excluded from `pass_rate`, fractional
@@ -180,6 +196,10 @@ pytest
   thresholds), regression/improvement detection (correct→wrong,
   wrong→correct, error transitions, stable cases), per-category delta
   calculation, unlabeled and new-case handling.
+- **`tests/test_drift.py`** — rolling average arithmetic, threshold
+  boundary (exactly at, just below), gradual decline scenario, improving
+  trend, judge score averaging with `None` values, insufficient-data
+  edge cases.
 
 All LLM calls are mocked; tests run offline and complete in under 3 seconds.
 
@@ -188,7 +208,7 @@ All LLM calls are mocked; tests run offline and complete in under 3 seconds.
 ## Repository layout
 
 ```
-cli.py                      # entry point: run, compare
+cli.py                      # entry point: run, compare, drift
 config.yaml                 # tunables and noise-floor documentation
 data/
   golden_v1.json            # 15 hand-labeled evaluation cases
@@ -202,12 +222,14 @@ src/
   dataset.py                # golden dataset loader and validator
   runner.py                 # async eval orchestrator
   scoring.py                # category match + LLM-as-judge
-  diff.py                   # run comparison and alert logic
-  storage.py                # JSON + SQLite persistence
+  diff.py                   # per-run comparison and alert logic
+  drift.py                  # rolling-window slow-drift detector
+  storage.py                # JSON + SQLite persistence; guards against all-error runs
   models.py                 # Pydantic contracts for all I/O
   config.py                 # config loader with env overrides
   prompts.py                # prompt YAML loader
 tests/
   test_runner.py
   test_diff.py
+  test_drift.py
 ```
