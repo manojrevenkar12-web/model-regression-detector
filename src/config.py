@@ -13,6 +13,8 @@ class Config:
     concurrency_limit: int = 5
     classifier_model: str = "openai/gpt-4o-mini"
     judge_model: str = "openai/gpt-4o"
+    classifier_max_tokens: int = 256
+    judge_max_tokens: int = 16
 
 
 def load_config(path: str | Path = "config.yaml") -> Config:
@@ -40,5 +42,11 @@ def load_config(path: str | Path = "config.yaml") -> Config:
         ),
         judge_model=os.environ.get(
             "JUDGE_MODEL", data.get("judge_model", "openai/gpt-4o")
+        ),
+        classifier_max_tokens=int(
+            os.environ.get("CLASSIFIER_MAX_TOKENS", data.get("classifier_max_tokens", 256))
+        ),
+        judge_max_tokens=int(
+            os.environ.get("JUDGE_MAX_TOKENS", data.get("judge_max_tokens", 16))
         ),
     )

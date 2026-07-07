@@ -24,7 +24,10 @@ async def _run_case(
             messages = _build_messages(case.text, prompt_config)
             t0 = time.perf_counter()
             llm_resp = await call_llm_full(
-                messages, model=config.classifier_model, temperature=0.0
+                messages,
+                model=config.classifier_model,
+                temperature=0.0,
+                max_tokens=config.classifier_max_tokens,
             )
             latency_ms = (time.perf_counter() - t0) * 1000
 
@@ -34,7 +37,10 @@ async def _run_case(
             j_pt = j_ct = 0
             if case.expected_summary:
                 judge_score, j_pt, j_ct = await judge_summary(
-                    output.summary, case.expected_summary, config.judge_model
+                    output.summary,
+                    case.expected_summary,
+                    config.judge_model,
+                    max_tokens=config.judge_max_tokens,
                 )
 
             return score_case(

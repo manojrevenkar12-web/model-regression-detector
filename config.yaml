@@ -1,5 +1,13 @@
 # Thresholds are expressed as fractions of pass rate (0.0–1.0).
 # A delta of 0.05 means a 5 percentage-point drop triggers a warning.
+#
+# Measured noise floor (2 identical back-to-back runs, golden_v1, 15 cases):
+#   Classifier (temp=0.0): 0 category flips across all 15 cases — fully deterministic.
+#   Judge (gpt-4o, temp=0.0): ±1 point on 1/15 cases; mean_judge_score impact ~0.067.
+#
+# warning_threshold=0.05 sits above the category noise floor (0 flips = 0.0 delta),
+# so any warning is a real signal, not measurement noise.
+# critical_threshold=0.15 corresponds to roughly 2+ cases flipping on this dataset.
 warning_threshold: 0.05
 critical_threshold: 0.15
 
@@ -12,3 +20,8 @@ concurrency_limit: 5
 # Models — override with env vars CLASSIFIER_MODEL / JUDGE_MODEL.
 classifier_model: openai/gpt-4o-mini
 judge_model: openai/gpt-4o
+
+# Max tokens per LLM call — classifier only needs JSON category+summary;
+# judge only needs a single digit (1-5).
+classifier_max_tokens: 256
+judge_max_tokens: 16

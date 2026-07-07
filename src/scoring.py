@@ -19,6 +19,7 @@ async def judge_summary(
     predicted_summary: str,
     expected_summary: str,
     judge_model: str,
+    max_tokens: int = 16,
 ) -> tuple[int, int, int]:
     """Return (score 1-5, prompt_tokens, completion_tokens)."""
     messages = [
@@ -31,7 +32,7 @@ async def judge_summary(
             ),
         },
     ]
-    resp = await call_llm_full(messages, model=judge_model, temperature=0.0)
+    resp = await call_llm_full(messages, model=judge_model, temperature=0.0, max_tokens=max_tokens)
     score = _parse_judge_score(resp.content)
     return score, resp.prompt_tokens, resp.completion_tokens
 

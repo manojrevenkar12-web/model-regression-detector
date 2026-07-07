@@ -24,12 +24,14 @@ async def call_llm_full(
     messages: list[dict[str, str]],
     model: str,
     temperature: float = 0.0,
+    max_tokens: int = 512,
     **kwargs: Any,
 ) -> LLMResponse:
     response = await _client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=temperature,
+        max_tokens=max_tokens,
         **kwargs,
     )
     usage = response.usage
