@@ -100,3 +100,15 @@ class RunComparison(BaseModel):
     regressions: list[str]
     improvements: list[str]
     alert_level: AlertLevel
+
+
+class DriftResult(BaseModel):
+    window_run_ids: list[str]           # run IDs included, newest first
+    window_size: int                    # actual runs used (may be < drift_window_runs)
+    insufficient_data: bool             # True when window_size < 2
+    reference_pass_rate: float | None   # oldest run in window; anchor for the drop
+    rolling_avg_pass_rate: float | None
+    rolling_avg_judge_score: float | None
+    pass_rate_drop: float | None        # reference - rolling_avg; positive = degradation
+    drift_detected: bool
+    alert_level: AlertLevel

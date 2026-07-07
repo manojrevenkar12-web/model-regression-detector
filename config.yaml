@@ -11,8 +11,15 @@
 warning_threshold: 0.05
 critical_threshold: 0.15
 
-# How many past runs to include when computing drift baseline.
-drift_window_runs: 5
+# Slow-drift detection (drift.py) — separate from per-run diff.py thresholds.
+# drift_window_runs: how many recent runs to include in the rolling average.
+# drift_threshold: fire a slow-drift warning when
+#   (oldest_run_in_window.pass_rate - rolling_avg_pass_rate) >= drift_threshold,
+#   even if no individual run crossed warning_threshold.
+# 0.05 matches warning_threshold: a 5pp cumulative slide is meaningful signal
+# even when each individual drop is below the per-run warning level.
+drift_window_runs: 7
+drift_threshold: 0.05
 
 # Max concurrent LLM calls (classifier + judge combined).
 concurrency_limit: 5

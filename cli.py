@@ -1,9 +1,10 @@
-"""Entry point: python cli.py run | compare"""
+"""Entry point: python cli.py run | compare | drift"""
 import argparse
 import asyncio
 
 from src.config import load_config
 from src.diff import compare_runs
+from src.drift import detect_drift
 from src.runner import run_eval
 from src.storage import list_runs, load_run, save_run
 
@@ -75,6 +76,30 @@ def cmd_compare(args) -> None:
     _print_compare(cmp, baseline, current)
 
 
+def cmd_drift(args) -> None:
+    config = load_config(args.config)
+    result = detect_drift(config)
+
+    print(f"window_size          : {result.window_size} / {config.drift_window_runs}")
+    print(f"alert_level          : {result.alert_level.value.upper()}")
+
+    if result.insufficient_data:
+        print("insufficient_data    : True — need at least 2 runs")
+        return
+
+    print(f"reference_pass_rate  : {result.reference_pass_rate:.1%}  (oldest run in window)")
+    print(f"rolling_avg_pass_rate: {result.rolling_avg_pass_rate:.1%}")
+    print(f"pass_rate_drop       : {result.pass_rate_drop:+.1%}  (positive = degradation)")
+    print(f"drift_threshold      : {config.drift_threshold:.1%}")
+    print(f"drift_detected       : {result.drift_detected}")
+    if result.rolling_avg_judge_score is not None:
+        print(f"rolling_avg_judge    : {result.rolling_avg_judge_score:.2f}")
+
+    print(f"\nruns in window (newest first):")
+    for rid in result.window_run_ids:
+        print(f"  {rid}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Model regression detector CLI")
     parser.add_argument("--config", default="config.yaml", metavar="PATH")
@@ -85,12 +110,15 @@ def main() -> None:
     run_p.add_argument("--prompt", default="prompts/email_classifier_v1.yaml", metavar="PATH")
 
     sub.add_parser("compare", help="Diff the two most recent saved runs")
+    sub.add_parser("drift", help="Detect slow degradation over the rolling window")
 
     args = parser.parse_args()
     if args.command == "run":
         asyncio.run(cmd_run(args))
     elif args.command == "compare":
         cmd_compare(args)
+    elif args.command == "drift":
+        cmd_drift(args)
 
 
 if __name__ == "__main__":
