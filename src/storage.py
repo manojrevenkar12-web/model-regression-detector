@@ -34,7 +34,18 @@ def _init_db(conn: sqlite3.Connection) -> None:
 
 
 def save_run(run: RunResult) -> Path:
-    """Persist full RunResult to JSON and write summary row to SQLite."""
+    """Persist full RunResult to JSON and write summary row to SQLite.
+
+    Raises RuntimeError if every case errored — that indicates an infrastructure
+    failure (bad API key, no credits, network down), not a quality measurement,
+    and should not pollute the baseline history.
+    """
+    error_count = sum(1 for c in run.cases if c.status == "error")
+    if run.cases and error_count == len(run.cases):
+        raise RuntimeError(
+            f"All {len(run.cases)} cases errored — likely an API or config failure. "
+            "Run not saved to avoid polluting the baseline history."
+        )
     _RESULTS_DIR.mkdir(exist_ok=True)
     json_path = _RESULTS_DIR / f"{run.run_id}.json"
     json_path.write_text(run.model_dump_json(indent=2), encoding="utf-8")
