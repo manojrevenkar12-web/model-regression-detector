@@ -11,6 +11,7 @@ class Config:
     critical_threshold: float = 0.15
     drift_window_runs: int = 7
     drift_threshold: float = 0.05
+    report_trend_runs: int = 20
     concurrency_limit: int = 5
     classifier_model: str = "openai/gpt-4o-mini"
     judge_model: str = "openai/gpt-4o"
@@ -37,6 +38,9 @@ def load_config(path: str | Path = "config.yaml") -> Config:
         ),
         drift_threshold=float(
             os.environ.get("DRIFT_THRESHOLD", data.get("drift_threshold", 0.05))
+        ),
+        report_trend_runs=int(
+            os.environ.get("REPORT_TREND_RUNS", data.get("report_trend_runs", 20))
         ),
         concurrency_limit=int(
             os.environ.get("CONCURRENCY_LIMIT", data.get("concurrency_limit", 5))

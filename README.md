@@ -40,6 +40,22 @@ by case ID, per-category deltas, and per-case judge-score drift.
 than `drift_threshold` from the oldest run in the window — catching
 gradual degradation that no single run's diff would surface.
 
+`compare` also takes two optional flags:
+
+```bash
+python cli.py compare --report --alert
+```
+
+- `--report` renders a self-contained HTML diff report to
+  `reports/<run_id>.html` (gitignored) — run metadata, a scorecard, a
+  table of regressed cases (old vs. new category/summary), and a
+  matplotlib pass-rate trend chart embedded as a base64 PNG, so the file
+  opens offline with no external assets.
+- `--alert` posts a Slack message (badge, headline numbers, drift status)
+  to the webhook at `SLACK_WEBHOOK_URL` in `.env`. If that variable is
+  unset, the same JSON payload is printed to the console instead of
+  erroring, so the pipeline is demoable without a real webhook.
+
 All three commands accept overrides:
 
 ```bash
@@ -76,6 +92,12 @@ Each run follows this path:
    SQLite and computes a rolling average pass rate. Fires a warning when
    the average has dropped by more than `drift_threshold` from the oldest
    run in the window, catching gradual decline that no single diff catches.
+7. **Report** (`src/report.py`) — renders a `RunComparison` and the two
+   `RunResult`s into an offline HTML file: metadata, scorecard, regressed
+   cases, and a trend chart built from the last `report_trend_runs` runs.
+8. **Alerts** (`src/alerts.py`) — posts a structured status message to a
+   Slack incoming webhook, or prints the same payload to console if no
+   webhook is configured.
 
 All LLM calls go through one function — `call_llm_full` in `src/llm.py`.
 This keeps the provider, model, and token-budget logic in one place;
@@ -161,6 +183,7 @@ warning_threshold: 0.05    # env: WARNING_THRESHOLD
 critical_threshold: 0.15   # env: CRITICAL_THRESHOLD
 drift_window_runs: 7        # env: DRIFT_WINDOW_RUNS
 drift_threshold: 0.05       # env: DRIFT_THRESHOLD
+report_trend_runs: 20       # env: REPORT_TREND_RUNS
 concurrency_limit: 5        # env: CONCURRENCY_LIMIT
 classifier_model: openai/gpt-4o-mini  # env: CLASSIFIER_MODEL
 judge_model: openai/gpt-4o            # env: JUDGE_MODEL
@@ -187,7 +210,7 @@ Switching to a different provider requires only changing `base_url` in
 pytest
 ```
 
-45 unit tests, no network calls. The test suite covers:
+63 unit tests, no network calls. The test suite covers:
 
 - **`tests/test_runner.py`** — error isolation (LLM exception → `status="error"`,
   not a crashed run), error cases excluded from `pass_rate`, fractional
@@ -200,8 +223,17 @@ pytest
   boundary (exactly at, just below), gradual decline scenario, improving
   trend, judge score averaging with `None` values, insufficient-data
   edge cases.
+- **`tests/test_report.py`** — every HTML section is present (metadata,
+  scorecard, regressed cases, trend), regressed-case rows show old vs.
+  new category/summary, trend chart falls back to a placeholder message
+  under 2 runs and embeds a valid base64 PNG otherwise, HTML-escaping of
+  case content.
+- **`tests/test_alerts.py`** — Slack payload shape and badge per alert
+  level, drift status inclusion, webhook POST vs. console fallback when
+  `SLACK_WEBHOOK_URL` is unset, webhook failure raises.
 
-All LLM calls are mocked; tests run offline and complete in under 3 seconds.
+All LLM calls and webhook POSTs are mocked; tests run offline and complete
+in under 5 seconds.
 
 ---
 
@@ -215,6 +247,7 @@ data/
 prompts/
   email_classifier_v1.yaml  # versioned prompt config with few-shot examples
 results/                    # one JSON file per run (gitignored)
+reports/                    # one HTML report per --report run (gitignored)
 runs.db                     # SQLite summary index (gitignored)
 src/
   llm.py                    # single LLM wrapper (call_llm_full)
@@ -224,6 +257,8 @@ src/
   scoring.py                # category match + LLM-as-judge
   diff.py                   # per-run comparison and alert logic
   drift.py                  # rolling-window slow-drift detector
+  report.py                 # offline HTML diff report generator
+  alerts.py                 # Slack webhook alerts (console fallback)
   storage.py                # JSON + SQLite persistence; guards against all-error runs
   models.py                 # Pydantic contracts for all I/O
   config.py                 # config loader with env overrides
@@ -232,4 +267,6 @@ tests/
   test_runner.py
   test_diff.py
   test_drift.py
+  test_report.py
+  test_alerts.py
 ```

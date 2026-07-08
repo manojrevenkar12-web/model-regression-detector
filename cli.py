@@ -2,9 +2,11 @@
 import argparse
 import asyncio
 
+from src.alerts import send_alert
 from src.config import load_config
 from src.diff import compare_runs
 from src.drift import detect_drift
+from src.report import generate_report
 from src.runner import run_eval
 from src.storage import list_runs, load_run, save_run
 
@@ -65,6 +67,15 @@ async def cmd_run(args) -> None:
     _print_run(run)
 
 
+def _drift_status_text(config) -> str:
+    drift = detect_drift(config)
+    if drift.insufficient_data:
+        return "insufficient data"
+    if drift.drift_detected:
+        return f"DRIFT DETECTED (-{drift.pass_rate_drop:.1%} over {drift.window_size} runs)"
+    return "no drift"
+
+
 def cmd_compare(args) -> None:
     config = load_config(args.config)
     rows = list_runs(limit=2)
@@ -74,6 +85,14 @@ def cmd_compare(args) -> None:
     baseline = load_run(rows[1]["run_id"])
     cmp = compare_runs(baseline=baseline, current=current, config=config)
     _print_compare(cmp, baseline, current)
+
+    if args.report:
+        path = generate_report(cmp, baseline, current, config)
+        print(f"\nReport written: {path}")
+
+    if args.alert:
+        drift_status = _drift_status_text(config)
+        send_alert(cmp, baseline, current, drift_status=drift_status)
 
 
 def cmd_drift(args) -> None:
@@ -109,7 +128,13 @@ def main() -> None:
     run_p.add_argument("--dataset", default="data/golden_v1.json", metavar="PATH")
     run_p.add_argument("--prompt", default="prompts/email_classifier_v1.yaml", metavar="PATH")
 
-    sub.add_parser("compare", help="Diff the two most recent saved runs")
+    compare_p = sub.add_parser("compare", help="Diff the two most recent saved runs")
+    compare_p.add_argument(
+        "--report", action="store_true", help="Generate an HTML diff report under reports/"
+    )
+    compare_p.add_argument(
+        "--alert", action="store_true", help="Post a Slack alert (prints to console if no webhook configured)"
+    )
     sub.add_parser("drift", help="Detect slow degradation over the rolling window")
 
     args = parser.parse_args()
