@@ -167,7 +167,8 @@ the model got better.
 
 **Baseline results** (golden_v1, prompt v1.0.0, gpt-4o-mini classifier):
 - Pass rate: **93.3%** (14/15)
-- Mean judge score: **4.1 / 5**
+- Mean judge score: **~4 / 5** (judge scores vary ±1 on borderline
+  cases; see [Evaluation methodology and noise floor](#evaluation-methodology-and-noise-floor))
 - One miss: `gc-010` ("its not working") — predicted `technical`,
   expected `general`. This is the hard minimal-signal case; the miss is
   expected at this dataset size.
