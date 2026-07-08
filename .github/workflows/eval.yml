@@ -117,13 +117,20 @@ jobs:
 
       # Reuses the CLI's own --alert flag (src/alerts.py); if the secret is
       # unset it prints the payload to the job log instead of failing.
+      # OPENROUTER_API_KEY is required here too: cli.py unconditionally
+      # imports src.runner -> src.llm, which builds its client at import
+      # time and needs the key even though `compare` never calls the LLM.
+      # continue-on-error: a Slack outage/misconfig shouldn't block merge —
+      # only a critical alert level should (checked below).
       - name: Send Slack alert
+        continue-on-error: true
         env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python cli.py compare --alert
 
       - name: Block merge on critical regression
-        if: steps.compare.outputs.alert_level == 'critical'
+        if: always() && steps.compare.outputs.alert_level == 'critical'
         run: |
           echo "::error::Critical regression detected — see PR comment for details."
           exit 1
