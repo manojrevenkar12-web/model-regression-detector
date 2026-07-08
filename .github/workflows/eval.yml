@@ -1,0 +1,129 @@
+# Regression gate for prompt/dataset changes.
+#
+# On any PR that touches prompts/** or data/**, this evaluates the golden
+# dataset twice — once with the PR's base-branch prompt+dataset as the
+# "before" baseline, once with the PR's changed prompt+dataset as "after" —
+# using the same classifier code both times, so any pass-rate delta is
+# attributable to the prompt/dataset change itself. It posts a summary
+# comment on the PR and blocks merge on a CRITICAL alert level.
+#
+# Required repo secrets: OPENROUTER_API_KEY (required), SLACK_WEBHOOK_URL
+# (optional — see README "CI secrets" section).
+name: Eval regression check
+
+on:
+  pull_request:
+    paths:
+      - "prompts/**"
+      - "data/**"
+
+permissions:
+  contents: read
+  pull-requests: write # needed for `gh pr comment`
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 pulls full history so `git show <base_sha>:<path>`
+      # below can read the pre-PR prompt/dataset content.
+      - name: Check out PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Extract the pre-PR prompt/dataset from the base branch into a
+      # separate directory. Assumes the filenames are unchanged by the PR
+      # (true for content-only edits; a file *rename* would need updating
+      # these paths, or diffing `git diff --name-only` to find them).
+      - name: Extract baseline prompt/dataset from base branch
+        run: |
+          mkdir -p baseline/prompts baseline/data
+          git show "${{ github.event.pull_request.base.sha }}:prompts/email_classifier_v1.yaml" \
+            > baseline/prompts/email_classifier_v1.yaml
+          git show "${{ github.event.pull_request.base.sha }}:data/golden_v1.json" \
+            > baseline/data/golden_v1.json
+
+      # Runs first so it's the OLDER saved row — `cli.py compare` treats the
+      # two most recent saved runs as (current = newest, baseline = 2nd newest).
+      - name: Run eval — baseline (pre-PR prompt/dataset)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python cli.py run \
+            --dataset baseline/data/golden_v1.json \
+            --prompt baseline/prompts/email_classifier_v1.yaml
+
+      - name: Run eval — current (PR prompt/dataset)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python cli.py run
+
+      # Reuses src/diff.py's compare_runs directly (the same logic `cli.py
+      # compare` prints) and writes a markdown summary + the alert level for
+      # the steps below to consume. Every line is flush-left (no indentation)
+      # because YAML's `|` block strips only the *common* leading whitespace,
+      # and this file's `python - <<'PYEOF'` content must remain valid,
+      # unindented Python once that stripping happens.
+      - name: Compare current run against baseline
+        id: compare
+        run: |
+          python - <<'PYEOF'
+          import os
+          from pathlib import Path
+
+          from src.config import load_config
+          from src.diff import compare_runs
+          from src.storage import list_runs, load_run
+
+          config = load_config()
+          rows = list_runs(limit=2)
+          current = load_run(rows[0]["run_id"])
+          baseline = load_run(rows[1]["run_id"])
+          cmp = compare_runs(baseline=baseline, current=current, config=config)
+
+          badge = {"ok": "PASS", "warning": "WARNING", "critical": "CRITICAL"}[cmp.alert_level.value]
+          regressions = ", ".join(cmp.regressions) or "none"
+          improvements = ", ".join(cmp.improvements) or "none"
+
+          summary = "\n".join([
+          f"### Eval regression check: {badge}",
+          "",
+          "| | Baseline | Current |",
+          "|---|---|---|",
+          f"| Pass rate | {baseline.pass_rate:.1%} | {current.pass_rate:.1%} |",
+          "",
+          f"**Delta:** {cmp.pass_rate_delta:+.1%}",
+          f"**Regressions ({len(cmp.regressions)}):** {regressions}",
+          f"**Improvements ({len(cmp.improvements)}):** {improvements}",
+          ])
+
+          Path("eval-summary.md").write_text(summary + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f: f.write(f"alert_level={cmp.alert_level.value}\n")
+          PYEOF
+
+      - name: Post summary comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr comment "${{ github.event.pull_request.number }}" --body-file eval-summary.md
+
+      # Reuses the CLI's own --alert flag (src/alerts.py); if the secret is
+      # unset it prints the payload to the job log instead of failing.
+      - name: Send Slack alert
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python cli.py compare --alert
+
+      - name: Block merge on critical regression
+        if: steps.compare.outputs.alert_level == 'critical'
+        run: |
+          echo "::error::Critical regression detected — see PR comment for details."
+          exit 1

@@ -204,6 +204,30 @@ Switching to a different provider requires only changing `base_url` in
 
 ---
 
+## CI: regression gate on prompt/dataset PRs
+
+`.github/workflows/eval.yml` runs on any pull request that touches
+`prompts/**` or `data/**`. It evaluates the golden dataset twice — once
+against the base branch's prompt/dataset (the "before" baseline) and once
+against the PR's changed version (the "after") — using the same classifier
+code both times, so the pass-rate delta is attributable to the prompt or
+dataset change itself. It then posts a summary comment on the PR (status
+badge, pass-rate before/after, regressions/improvements) and **fails the
+job — blocking merge — if the alert level is critical**.
+
+**Required repo secrets** (Settings → Secrets and variables → Actions →
+New repository secret):
+
+| Secret | Required | Purpose |
+|---|---|---|
+| `OPENROUTER_API_KEY` | Yes | Classifier + judge LLM calls. Without it the job fails immediately. |
+| `SLACK_WEBHOOK_URL` | No | Also posts the same alert to Slack. If unset, the workflow prints the payload to the job log instead of erroring (same console fallback as running locally). |
+
+`GITHUB_TOKEN` (used to post the PR comment) is provided automatically by
+Actions — no setup needed.
+
+---
+
 ## Tests
 
 ```bash
@@ -240,6 +264,9 @@ in under 5 seconds.
 ## Repository layout
 
 ```
+.github/
+  workflows/
+    eval.yml                 # PR regression gate for prompts/**, data/**
 cli.py                      # entry point: run, compare, drift
 config.yaml                 # tunables and noise-floor documentation
 data/
