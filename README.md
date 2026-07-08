@@ -56,7 +56,8 @@ python cli.py compare --report --alert
   unset, the same JSON payload is printed to the console instead of
   erroring, so the pipeline is demoable without a real webhook.
 
-All three commands accept overrides:
+`--config` works on all three commands; `run` additionally accepts
+`--dataset` and `--prompt`:
 
 ```bash
 python cli.py --config config.yaml run \
@@ -204,6 +205,40 @@ Switching to a different provider requires only changing `base_url` in
 
 ---
 
+## Docker
+
+Build once, run without installing anything locally:
+
+```bash
+docker build -t model-regression-detector .
+```
+
+Secrets and config overrides are read from the environment at `docker run`
+time — never baked into the image. Mount `results/`, `reports/`, and
+`runs.db` as volumes so run history persists across containers:
+
+```bash
+docker run --rm \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -e SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... \
+  -e CRITICAL_THRESHOLD=0.10 \
+  -v "$(pwd)/results:/app/results" \
+  -v "$(pwd)/reports:/app/reports" \
+  -v "$(pwd)/runs.db:/app/runs.db" \
+  model-regression-detector run
+
+docker run --rm \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  -v "$(pwd)/results:/app/results" \
+  -v "$(pwd)/runs.db:/app/runs.db" \
+  model-regression-detector compare --report
+```
+
+Without the volume mounts, each container starts with an empty baseline
+history.
+
+---
+
 ## CI: regression gate on prompt/dataset PRs
 
 `.github/workflows/eval.yml` runs on any pull request that touches
@@ -214,6 +249,11 @@ code both times, so the pass-rate delta is attributable to the prompt or
 dataset change itself. It then posts a summary comment on the PR (status
 badge, pass-rate before/after, regressions/improvements) and **fails the
 job — blocking merge — if the alert level is critical**.
+
+The Slack-alert step is `continue-on-error` — a webhook outage or
+misconfiguration is logged but never blocks merge. Only the eval result
+itself (`alert_level == critical`) can fail the job; that check runs
+`if: always()` so it fires regardless of whether the Slack step succeeded.
 
 **Required repo secrets** (Settings → Secrets and variables → Actions →
 New repository secret):
@@ -234,7 +274,7 @@ Actions — no setup needed.
 pytest
 ```
 
-63 unit tests, no network calls. The test suite covers:
+64 unit tests, no network calls. The test suite covers:
 
 - **`tests/test_runner.py`** — error isolation (LLM exception → `status="error"`,
   not a crashed run), error cases excluded from `pass_rate`, fractional
@@ -254,7 +294,8 @@ pytest
   case content.
 - **`tests/test_alerts.py`** — Slack payload shape and badge per alert
   level, drift status inclusion, webhook POST vs. console fallback when
-  `SLACK_WEBHOOK_URL` is unset, webhook failure raises.
+  `SLACK_WEBHOOK_URL` is unset (including the `.env.example` placeholder
+  URL), webhook failure raises.
 
 All LLM calls and webhook POSTs are mocked; tests run offline and complete
 in under 5 seconds.
@@ -267,6 +308,8 @@ in under 5 seconds.
 .github/
   workflows/
     eval.yml                 # PR regression gate for prompts/**, data/**
+Dockerfile                   # slim Python 3.12 image; ENTRYPOINT -> cli.py
+.dockerignore                # excludes .venv, .env, results/, reports/, runs.db, __pycache__
 cli.py                      # entry point: run, compare, drift
 config.yaml                 # tunables and noise-floor documentation
 data/
